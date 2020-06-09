@@ -6,7 +6,8 @@ import numpy as np
 from random import shuffle
 from collections import OrderedDict
 import dataloaders.base
-from dataloaders.datasetGen import SplitGen, PermutedGen
+from dataloaders.datasetGen import SplitGen, PermutedGen, RotatedGen
+import dataloaders.visualizeDataset
 import agents
 
 
@@ -15,11 +16,25 @@ def run(args):
         os.mkdir('outputs')
 
     # Prepare dataloaders
-    train_dataset, val_dataset = dataloaders.base.__dict__[args.dataset](args.dataroot, args.train_aug)
-    if args.n_permutation>0:
+    # Perform permutation, rotation, or splitting, if necessary
+    train_dataset, val_dataset, normalize = dataloaders.base.__dict__[args.dataset](args.dataroot, args.train_aug)
+
+    
+    if args.n_permutation > 0:
+        
+        assert args.n_permutation != args.n_rotation, "Cannot both rotate and permute the dataset, only one of n_permutation, n_rotation can be >0"
+        
         train_dataset_splits, val_dataset_splits, task_output_space = PermutedGen(train_dataset, val_dataset,
                                                                              args.n_permutation,
                                                                              remap_class=not args.no_class_remap)
+    
+    elif args.n_rotation > 0:
+        
+        train_dataset_splits, val_dataset_splits, task_output_space = RotatedGen(train_dataset, val_dataset,
+                                                                             args.n_permutation,
+                                                                             remap_class=not args.no_class_remap)
+        
+    
     else:
         train_dataset_splits, val_dataset_splits, task_output_space = SplitGen(train_dataset, val_dataset,
                                                                           first_split_sz=args.first_split_size,
@@ -27,6 +42,21 @@ def run(args):
                                                                           rand_split=args.rand_split,
                                                                           remap_class=not args.no_class_remap)
 
+    # Optionally visualize data
+    if args.visualize_dataset:
+        
+        for task, data in train_dataset_splits.items():
+            
+            print(task)
+            print(data)
+            break
+            
+        
+    return
+            
+    
+    
+    
     # Prepare the Agent (model)
     agent_config = {'lr': args.lr, 'momentum': args.momentum, 'weight_decay': args.weight_decay,'schedule': args.schedule,
                     'model_type':args.model_type, 'model_name': args.model_name, 'model_weights':args.model_weights,
@@ -103,10 +133,12 @@ def get_args(argv):
     parser.add_argument('--dataroot', type=str, default='data', help="The root folder of dataset or downloaded data")
     parser.add_argument('--dataset', type=str, default='MNIST', help="MNIST(default)|CIFAR10|CIFAR100")
     parser.add_argument('--n_permutation', type=int, default=0, help="Enable permuted tests when >0")
+    parser.add_argument('--n_rotation', type=int, default=0, help ="Enable rotated tests when >0")
     parser.add_argument('--first_split_size', type=int, default=2)
     parser.add_argument('--other_split_size', type=int, default=2)
     parser.add_argument('--no_class_remap', dest='no_class_remap', default=False, action='store_true',
                         help="Avoid the dataset with a subset of classes doing the remapping. Ex: [2,5,6 ...] -> [0,1,2 ...]")
+    parser.add_argument('--visualize_dataset', default=False, action="store_true", help="Visualizes random samples from the dataset")
     parser.add_argument('--train_aug', dest='train_aug', default=False, action='store_true',
                         help="Allow data augmentation during training")
     parser.add_argument('--rand_split', dest='rand_split', default=False, action='store_true',

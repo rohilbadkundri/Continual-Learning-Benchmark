@@ -6,7 +6,9 @@ def MNIST(dataroot, train_aug=False):
     # Add padding to make 32x32
     #normalize = transforms.Normalize(mean=(0.1307,), std=(0.3081,))  # for 28x28
     normalize = transforms.Normalize(mean=(0.1000,), std=(0.2752,))  # for 32x32
-
+    
+    print(normalize)
+    
     val_transform = transforms.Compose([
         transforms.Pad(2, fill=0, padding_mode='constant'),
         transforms.ToTensor(),
@@ -35,7 +37,7 @@ def MNIST(dataroot, train_aug=False):
     )
     val_dataset = CacheClassLabel(val_dataset)
 
-    return train_dataset, val_dataset
+    return train_dataset, val_dataset, normalize
 
 def CIFAR10(dataroot, train_aug=False):
     normalize = transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262])
@@ -69,7 +71,7 @@ def CIFAR10(dataroot, train_aug=False):
     )
     val_dataset = CacheClassLabel(val_dataset)
 
-    return train_dataset, val_dataset
+    return train_dataset, val_dataset, normalize
 
 
 def CIFAR100(dataroot, train_aug=False):
@@ -104,5 +106,5 @@ def CIFAR100(dataroot, train_aug=False):
     )
     val_dataset = CacheClassLabel(val_dataset)
 
-    return train_dataset, val_dataset
+    return train_dataset, val_dataset, normalize
 
