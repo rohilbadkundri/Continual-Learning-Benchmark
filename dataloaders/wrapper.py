@@ -1,6 +1,8 @@
 from os import path
 import torch
 import torch.utils.data as data
+import torchvision.transforms.functional as TF
+from kornia import normalize, denormalize
 
 
 class CacheClassLabel(data.Dataset):
@@ -96,6 +98,31 @@ class Permutation(data.Dataset):
         shape = img.size()
         img = img.view(-1)[self.permute_idx].view(shape)
         return img, target
+    
+    
+class Rotation(data.Dataset):
+    """
+    A dataset wrapper that rotates images by a specified angle
+    """
+    def __init__(self, dataset, angle, mean, std):
+        super(Rotation,self).__init__()
+        self.dataset = dataset
+        self.angle = angle
+        self.mean = torch.tensor(mean)
+        self.std = torch.tensor(std)
+        
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, index):
+        img,target = self.dataset[index]
+        denorm = denormalize(img, self.mean, self.std)
+        pil = TF.to_pil_image(denorm)
+        rotated = TF.rotate(pil, self.angle)
+        rotated_tens = TF.to_tensor(rotated)
+        norm = normalize(rotated_tens, self.mean , self.std)
+        
+        return norm, target
 
 
 class Storage(data.Dataset):
@@ -117,3 +144,5 @@ class Storage(data.Dataset):
 
     def extend(self,x):
         self.storage.extend(x)
+        
+

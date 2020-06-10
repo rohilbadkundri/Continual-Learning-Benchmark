@@ -1,6 +1,7 @@
 import torch
 from random import shuffle
-from .wrapper import Subclass, AppendName, Permutation
+from .wrapper import Subclass, AppendName, Permutation, Rotation
+from kornia import normalize, denormalize
 
 
 def SplitGen(train_dataset, val_dataset, first_split_sz=2, other_split_sz=2, rand_split=False, remap_class=False):
@@ -68,3 +69,28 @@ def PermutedGen(train_dataset, val_dataset, n_permute, remap_class=False):
         task_output_space[name] = train_dataset.number_classes
 
     return train_datasets, val_datasets, task_output_space
+
+
+def RotatedGen(train_dataset, val_dataset, n_rotation, normalize, remap_class=False):
+    train_datasets = {}
+    val_datasets = {}
+    task_output_space = {}
+    angle_incremenent = 360.0 / n_rotation
+    for i in range(1,n_rotation+1):
+        name = str(i)
+        if i == 1:  # First task has no rotation
+            train_datasets[name] = AppendName(train_dataset, name)
+            val_datasets[name] = AppendName(val_dataset, name)
+        else:
+            # For incremental class scenario, use remap_class=True
+            first_class_ind = (i-1)*train_dataset.number_classes if remap_class else 0
+            angle = angle_incremenent * (i-1)
+            train_datasets[name] = AppendName(Rotation(train_dataset, angle, normalize.mean, normalize.std), name, first_class_ind=first_class_ind)
+            val_datasets[name] = AppendName(Rotation(val_dataset, angle, normalize.mean, normalize.std), name, first_class_ind=first_class_ind)
+        
+        task_output_space[name] = train_dataset.number_classes
+
+    return train_datasets, val_datasets, task_output_space
+
+
+
