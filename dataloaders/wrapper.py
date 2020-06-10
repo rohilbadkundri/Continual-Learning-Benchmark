@@ -2,6 +2,7 @@ from os import path
 import torch
 import torch.utils.data as data
 import torchvision.transforms.functional as TF
+from kornia import normalize, denormalize
 
 
 class CacheClassLabel(data.Dataset):
@@ -103,20 +104,25 @@ class Rotation(data.Dataset):
     """
     A dataset wrapper that rotates images by a specified angle
     """
-    def __init__(self, dataset, angle):
+    def __init__(self, dataset, angle, mean, std):
         super(Rotation,self).__init__()
         self.dataset = dataset
         self.angle = angle
-
+        self.mean = torch.tensor(mean)
+        self.std = torch.tensor(std)
+        
     def __len__(self):
         return len(self.dataset)
 
     def __getitem__(self, index):
         img,target = self.dataset[index]
-        img_PIL = TF.to_pil_image(img)
-        img_PIL_rotated = TF.rotate(img_PIL, self.angle)
-        img_rotated = TF.to_tensor(img_PIL_rotated)
-        return img_rotated, target
+        denorm = denormalize(img, self.mean, self.std)
+        pil = TF.to_pil_image(denorm)
+        rotated = TF.rotate(pil, self.angle)
+        rotated_tens = TF.to_tensor(rotated)
+        norm = normalize(rotated_tens, self.mean , self.std)
+        
+        return norm, target
 
 
 class Storage(data.Dataset):

@@ -7,8 +7,10 @@ from random import shuffle
 from collections import OrderedDict
 import dataloaders.base
 from dataloaders.datasetGen import SplitGen, PermutedGen, RotatedGen
-import dataloaders.visualizeDataset
+from dataloaders.visualizeDataset import visualize
 import agents
+import matplotlib.pyplot as plt
+import pandas as pd
 
 
 def run(args):
@@ -31,7 +33,7 @@ def run(args):
     elif args.n_rotation > 0:
         
         train_dataset_splits, val_dataset_splits, task_output_space = RotatedGen(train_dataset, val_dataset,
-                                                                             args.n_permutation,
+                                                                             args.n_rotation, normalize,
                                                                              remap_class=not args.no_class_remap)
         
     
@@ -41,20 +43,6 @@ def run(args):
                                                                           other_split_sz=args.other_split_size,
                                                                           rand_split=args.rand_split,
                                                                           remap_class=not args.no_class_remap)
-
-    # Optionally visualize data
-    if args.visualize_dataset:
-        
-        for task, data in train_dataset_splits.items():
-            
-            print(task)
-            print(data)
-            break
-            
-        
-    return
-            
-    
     
     
     # Prepare the Agent (model)
@@ -85,6 +73,11 @@ def run(args):
         val_loader = torch.utils.data.DataLoader(val_dataset_all,
                                                  batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
 
+        # Optionally visualize data
+        if args.visualize_dataset > 0:
+            batch_idx, (img, label, task) = next(enumerate(train_loader))
+            visualize(img, label, task, normalize, args.visualize_dataset)
+        
         agent.learn_batch(train_loader, val_loader)
 
         acc_table['All'] = {}
@@ -103,6 +96,11 @@ def run(args):
             if args.incremental_class:
                 agent.add_valid_output_dim(task_output_space[train_name])
 
+            # Optionally visualize data
+            if args.visualize_dataset > 0:
+                batch_idx, (img, label, task) = next(enumerate(train_loader))
+                visualize(img, label, task, normalize, args.visualize_dataset)
+                
             # Learn
             agent.learn_batch(train_loader, val_loader)
 
@@ -113,10 +111,11 @@ def run(args):
                 print('validation split name:', val_name)
                 val_data = val_dataset_splits[val_name] if not args.eval_on_train_set else train_dataset_splits[val_name]
                 val_loader = torch.utils.data.DataLoader(val_data,
-                                                         batch_size=args.batch_size, shuffle=False,
-                                                         num_workers=args.workers)
+                                                          batch_size=args.batch_size, shuffle=False,
+                                                          num_workers=args.workers)
                 acc_table[val_name][train_name] = agent.validation(val_loader)
-
+ 
+    
     return acc_table, task_names
 
 def get_args(argv):
@@ -138,7 +137,7 @@ def get_args(argv):
     parser.add_argument('--other_split_size', type=int, default=2)
     parser.add_argument('--no_class_remap', dest='no_class_remap', default=False, action='store_true',
                         help="Avoid the dataset with a subset of classes doing the remapping. Ex: [2,5,6 ...] -> [0,1,2 ...]")
-    parser.add_argument('--visualize_dataset', default=False, action="store_true", help="Visualizes random samples from the dataset")
+    parser.add_argument('--visualize_dataset', type=int, default=0, help="Number of samples to visualize from each task")
     parser.add_argument('--train_aug', dest='train_aug', default=False, action='store_true',
                         help="Allow data augmentation during training")
     parser.add_argument('--rand_split', dest='rand_split', default=False, action='store_true',
@@ -163,6 +162,8 @@ def get_args(argv):
     parser.add_argument('--repeat', type=int, default=1, help="Repeat the experiment N times")
     parser.add_argument('--incremental_class', dest='incremental_class', default=False, action='store_true',
                         help="The number of output node in the single-headed model increases along with new categories.")
+    parser.add_argument('--output_dir', default='outputs/experiment.csv',
+                        help="Where to store accuracy table")
     args = parser.parse_args(argv)
     return args
 
@@ -180,6 +181,8 @@ if __name__ == '__main__':
             # Run the experiment
             acc_table, task_names = run(args)
             print(acc_table)
+            acc_df = pd.DataFrame.from_dict(acc_table)
+            acc_df.to_csv(args.output_dir)
 
             # Calculate average performance across tasks
             # Customize this part for a different performance metric
@@ -201,5 +204,8 @@ if __name__ == '__main__':
             print('The regularization coefficient:', args.reg_coef)
             print('The last avg acc of all repeats:', avg_final_acc[reg_coef])
             print('mean:', avg_final_acc[reg_coef].mean(), 'std:', avg_final_acc[reg_coef].std())
+    
     for reg_coef,v in avg_final_acc.items():
         print('reg_coef:', reg_coef,'mean:', avg_final_acc[reg_coef].mean(), 'std:', avg_final_acc[reg_coef].std())
+
+    plt.show()        
