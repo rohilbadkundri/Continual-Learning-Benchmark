@@ -10,12 +10,14 @@ from dataloaders.datasetGen import SplitGen, PermutedGen, RotatedGen
 from dataloaders.visualizeDataset import visualize
 import agents
 import matplotlib.pyplot as plt
+import multiprocessing as mp
 import pandas as pd
+import pickle
 
 
 def run(args):
-    if not os.path.exists('outputs'):
-        os.mkdir('outputs')
+    if not os.path.exists(args.output_dir):
+        os.mkdir(args.output_dir)
 
     # Prepare dataloaders
     # Perform permutation, rotation, or splitting, if necessary
@@ -76,7 +78,7 @@ def run(args):
         # Optionally visualize data
         if args.visualize_dataset > 0:
             batch_idx, (img, label, task) = next(enumerate(train_loader))
-            visualize(img, label, task, normalize, args.visualize_dataset)
+            visualize(img, label, task, normalize, args.visualize_dataset, args.output_dir)
         
         agent.learn_batch(train_loader, val_loader)
 
@@ -99,7 +101,8 @@ def run(args):
             # Optionally visualize data
             if args.visualize_dataset > 0:
                 batch_idx, (img, label, task) = next(enumerate(train_loader))
-                visualize(img, label, task, normalize, args.visualize_dataset)
+                visualize(img, label, task, normalize, args.visualize_dataset, args.output_dir)
+                plt.close('all')
                 
             # Learn
             agent.learn_batch(train_loader, val_loader)
@@ -162,28 +165,36 @@ def get_args(argv):
     parser.add_argument('--repeat', type=int, default=1, help="Repeat the experiment N times")
     parser.add_argument('--incremental_class', dest='incremental_class', default=False, action='store_true',
                         help="The number of output node in the single-headed model increases along with new categories.")
-    parser.add_argument('--output_dir', default='outputs/experiment.csv',
+    parser.add_argument('--output_dir', default='outputs/experiment/',
                         help="Where to store accuracy table")
     args = parser.parse_args(argv)
     return args
 
 if __name__ == '__main__':
+    
+    # matplotlib causes errors with multiprocessing in OSX Catalina
+    mp.set_start_method('forkserver')
+      
     args = get_args(sys.argv[1:])
     reg_coef_list = args.reg_coef
     avg_final_acc = {}
+    
+    # keeping track of accuracies for each reg coef/repeat in a dataframe
+    acc_tables = {}
 
     # The for loops over hyper-paramerters or repeats
     for reg_coef in reg_coef_list:
         args.reg_coef = reg_coef
         avg_final_acc[reg_coef] = np.zeros(args.repeat)
+        acc_tables[reg_coef] = [None] * args.repeat
         for r in range(args.repeat):
 
             # Run the experiment
             acc_table, task_names = run(args)
             print(acc_table)
             acc_df = pd.DataFrame.from_dict(acc_table)
-            acc_df.to_csv(args.output_dir)
-
+            acc_tables[reg_coef][r] = acc_table
+            
             # Calculate average performance across tasks
             # Customize this part for a different performance metric
             avg_acc_history = [0] * len(task_names)
@@ -207,5 +218,9 @@ if __name__ == '__main__':
     
     for reg_coef,v in avg_final_acc.items():
         print('reg_coef:', reg_coef,'mean:', avg_final_acc[reg_coef].mean(), 'std:', avg_final_acc[reg_coef].std())
-
-    plt.show()        
+    
+    # save the accuracy dictionary to a pickle to be manipulated later
+    with open(args.output_dir + 'acc_table_dict.pickle', 'wb') as fname:
+        pickle.dump(acc_tables, fname, protocol=pickle.HIGHEST_PROTOCOL)
+        
+        

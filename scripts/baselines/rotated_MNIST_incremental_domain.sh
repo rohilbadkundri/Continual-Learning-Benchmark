@@ -1,0 +1,8 @@
+GPUID=$0
+OUTDIR=outputs/rotated_MNIST_incremental_domain/
+REPEAT=10
+mkdir -p $OUTDIR
+python -u iBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam    --n_rotation 10 --no_class_remap --force_out_dim 10 --schedule 10 --batch_size 128 --model_name MLP1000                                                     --lr 0.0001  --offline_training  --output_dir ${OUTDIR}Offline/  | tee ${OUTDIR}Offline/experiment.log
+python -u iBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam    --n_rotation 10 --no_class_remap --force_out_dim 10 --schedule 10 --batch_size 128 --model_name MLP1000                                                     --lr 0.0001                      --output_dir ${OUTDIR}Adam/     | tee ${OUTDIR}Adam/experiment.log
+python -u iBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer SGD     --n_rotation 10 --no_class_remap --force_out_dim 10 --schedule 10 --batch_size 128 --model_name MLP1000                                                     --lr 0.001                       --output_dir ${OUTDIR}SGD/      | tee ${OUTDIR}SGD/experiment.log
+python -u iBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adagrad --n_rotation 10 --no_class_remap --force_out_dim 10 --schedule 10 --batch_size 128 --model_name MLP1000                                                     --lr 0.001                       --output_dir ${OUTDIR}Adagrad/  | tee ${OUTDIR}Adagrad/experiment.log

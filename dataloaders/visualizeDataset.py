@@ -3,6 +3,9 @@ from kornia import denormalize
 import torchvision.transforms.functional as TF
 import matplotlib.pyplot as plt
 import math
+import os
+
+
 
 # ad hoc, ineffecient method of getting two factors closest to sqr root of n
 def getClosestFactors(n):
@@ -16,7 +19,9 @@ def getClosestFactors(n):
     
 
 # code for visualizing dataset
-def visualize(img, label, task, normalize, n=6):
+def visualize(img, label, task, normalize, n, output_dir):
+    
+    plt.ioff()
     
     denormalized_img = denormalize(img[:n], torch.tensor(normalize.mean), torch.tensor(normalize.std))
     
@@ -37,8 +42,15 @@ def visualize(img, label, task, normalize, n=6):
         plt.title("Class: {}".format(label[i]))
         plt.xticks([])
         plt.yticks([])
+        
+    plt.tight_layout()
     
-    
+    if not os.path.exists(output_dir + 'task_images/'):
+        os.mkdir(output_dir + 'task_images/')
+            
+    fig.savefig(output_dir + 'task_images/task' + task[0] + '_images.png')
+    plt.close(fig)
+        
     
     
 
